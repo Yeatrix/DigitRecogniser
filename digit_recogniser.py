@@ -1,24 +1,25 @@
 import os
 import numpy as np
-# import cv2
-# from tensorflow.keras.models import load_model
+import cv2
+from tensorflow.keras.models import load_model
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
+import pickle 
 
-# MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model')
-# if not os.path.isdir(MODEL_DIR):
-#     os.system('runipy train.ipynb')
+def load_model():
+    url = "https://raw.githubusercontent.com/Yeatrix/DigitRecogniser/main/knn_model.pkl"  
+    response = requests.get(url)
+    response.raise_for_status()  
+    model = pickle.loads(response.content)
+    return model
 
-# model = load_model('model')
-# st.markdown('<style>body{color: White; background-color: DarkSlateGrey}</style>', unsafe_allow_html=True)
+knn_model = load_model()
 
-st.title('My Digit Recognizer')
+st.title('Digit Recognizer')
 st.markdown('''
 Try to write a digit!
 ''')
 
-# data = np.random.rand(28,28)
-# img = cv2.resize(data, (256, 256), interpolation=cv2.INTER_NEAREST)
 
 SIZE = 192
 mode = st.checkbox("Draw (or Delete)?", True)
@@ -32,15 +33,19 @@ canvas_result = st_canvas(
     drawing_mode="freedraw" if mode else "transform",
     key='canvas')
 
-# if canvas_result.image_data is not None:
-#     img = cv2.resize(canvas_result.image_data.astype('uint8'), (28, 28))
-#     rescaled = cv2.resize(img, (SIZE, SIZE), interpolation=cv2.INTER_NEAREST)
-#     st.write('Model Input')
-#     st.image(rescaled)
 
-# if st.button('Predict'):
-#     test_x = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#     val = model.predict(test_x.reshape(1, 28, 28))
-#     st.write(f'result: {np.argmax(val[0])}')
-#     st.bar_chart(val[0])
+if canvas_result.image_data is not None:
+    st.image(canvas_result.image_data, caption="Your Drawing", use_column_width=False)
 
+    def preprocess_image(image):
+        image = Image.fromarray((image[:, :, :3] * 255).astype(np.uint8))  
+        image = ImageOps.grayscale(image) 
+        image = image.resize((28, 28)) 
+        image = np.array(image) / 255.0 
+        return image.flatten().reshape(1, -1)  
+
+    if st.button("Predict"):
+        if canvas_result.image_data is not None:
+            input_data = preprocess_image(canvas_result.image_data)
+            prediction = knn_model.predict(input_data)
+            st.write(f"Predicted Digit: {prediction[0]}")
